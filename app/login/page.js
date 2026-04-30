@@ -111,7 +111,7 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     setLoading(true)
     try {
-      await signIn('google', { callbackUrl: '/dashboard' }) // it was previous written as /dashboard
+      await signIn('google', { callbackUrl: 'http://localhost:3000/auth/google/callback' }) // it was previous written as /dashboard
     } catch {
       setLoading(false)
     }
