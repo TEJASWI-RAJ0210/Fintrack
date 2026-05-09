@@ -5,7 +5,6 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    // Session
     const session = await getServerSession(
       authOptions
     );
@@ -13,6 +12,7 @@ export async function GET() {
     if (!session) {
       return NextResponse.json(
         {
+          success: false,
           error: "Unauthorized",
         },
         {
@@ -23,7 +23,6 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    // Current month/year
     const now = new Date();
 
     const currentMonth =
@@ -33,12 +32,12 @@ export async function GET() {
       now.getFullYear();
 
     /*
-      TOTAL SPENT THIS MONTH
+      MONTH TOTAL
     */
     const totalRes = await query(
       `
       SELECT
-        COALESCE(SUM(amount), 0)::float AS total
+        COALESCE(SUM(amount),0)::float AS total
 
       FROM expenses
 
@@ -55,15 +54,15 @@ export async function GET() {
     );
 
     /*
-      CATEGORY BREAKDOWN
-      (CURRENT MONTH ONLY)
+      CATEGORY REPORT
     */
     const categoryRes = await query(
       `
       SELECT
         c.name,
         c.color,
-        SUM(e.amount)::float AS total
+
+        COALESCE(SUM(e.amount),0)::float AS total
 
       FROM expenses e
 
@@ -89,14 +88,13 @@ export async function GET() {
     );
 
     /*
-      LAST 6 MONTHS TREND
+      WEEKLY TREND
     */
     const trendRes = await query(
       `
       SELECT
-        TO_CHAR(expense_date, 'Mon') AS month_label,
-
-        EXTRACT(MONTH FROM expense_date) AS month_num,
+        EXTRACT(WEEK FROM expense_date)
+          AS week,
 
         SUM(amount)::float AS total
 
@@ -104,29 +102,96 @@ export async function GET() {
 
       WHERE
         user_id = $1
-        AND expense_date >= NOW() - INTERVAL '6 months'
+        AND EXTRACT(MONTH FROM expense_date) = $2
+        AND EXTRACT(YEAR FROM expense_date) = $3
 
-      GROUP BY
-        month_label,
-        month_num
+      GROUP BY week
 
-      ORDER BY month_num
+      ORDER BY week
       `,
-      [userId]
+      [
+        userId,
+        currentMonth,
+        currentYear,
+      ]
     );
 
     /*
-      BUDGET ALERTS
-      (CURRENT MONTH ONLY)
+      HIGHEST SPEND DAY
     */
-    const alertRes = await query(
+    const highestDayRes = await query(
       `
       SELECT
-        c.name AS category_name,
+        expense_date,
+
+        SUM(amount)::float AS total
+
+      FROM expenses
+
+      WHERE
+        user_id = $1
+        AND EXTRACT(MONTH FROM expense_date) = $2
+        AND EXTRACT(YEAR FROM expense_date) = $3
+
+      GROUP BY expense_date
+
+      ORDER BY total DESC
+
+      LIMIT 1
+      `,
+      [
+        userId,
+        currentMonth,
+        currentYear,
+      ]
+    );
+
+    /*
+      MOST EXPENSIVE CATEGORY
+    */
+    const expensiveCategoryRes =
+      await query(
+        `
+      SELECT
+        c.name,
+
+        SUM(e.amount)::float AS total
+
+      FROM expenses e
+
+      JOIN categories c
+        ON c.id = e.category_id
+
+      WHERE
+        e.user_id = $1
+        AND EXTRACT(MONTH FROM e.expense_date) = $2
+        AND EXTRACT(YEAR FROM e.expense_date) = $3
+
+      GROUP BY c.name
+
+      ORDER BY total DESC
+
+      LIMIT 1
+      `,
+        [
+          userId,
+          currentMonth,
+          currentYear,
+        ]
+      );
+
+    /*
+      BUDGET BREAKDOWN
+    */
+    const breakdownRes = await query(
+      `
+      SELECT
+        c.name,
 
         b.monthly_limit,
 
-        COALESCE(SUM(e.amount), 0)::float AS spent
+        COALESCE(SUM(e.amount),0)::float
+          AS actual
 
       FROM budgets b
 
@@ -148,9 +213,7 @@ export async function GET() {
         c.name,
         b.monthly_limit
 
-      HAVING
-        COALESCE(SUM(e.amount), 0)
-        >= b.monthly_limit * 0.8
+      ORDER BY actual DESC
       `,
       [
         userId,
@@ -162,29 +225,35 @@ export async function GET() {
     return NextResponse.json({
       success: true,
 
-      totalThisMonth:
-        totalRes.rows[0].total,
+      total:
+        totalRes.rows[0]?.total || 0,
 
-      categoriesTracked:
-        categoryRes.rows.length,
+      categories:
+        categoryRes.rows,
 
-      byCategory: categoryRes.rows,
+      trend:
+        trendRes.rows,
 
-      monthlyTrend: trendRes.rows,
+      highestDay:
+        highestDayRes.rows[0] || null,
 
-      budgetAlerts: alertRes.rows,
+      expensiveCategory:
+        expensiveCategoryRes.rows[0] ||
+        null,
+
+      breakdown:
+        breakdownRes.rows,
     });
   } catch (err) {
     console.error(
-      "Dashboard API Error:",
+      "Reports API Error:",
       err
     );
 
     return NextResponse.json(
       {
         success: false,
-        error: "Internal server error",
-        message: err.message,
+        error: err.message,
       },
       {
         status: 500,
