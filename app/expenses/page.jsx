@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import Papa from "papaparse";
+import DashboardLayout from '../dashboard/layout'
 
 export default function ExpensesPage() {
   const [expenses,   setExpenses]   = useState([]);
@@ -170,8 +171,8 @@ export default function ExpensesPage() {
   });
 
   return (
+    <DashboardLayout>
     <div className="min-h-screen bg-[#070B14] text-white flex font-sans">
-      <Sidebar />
       <main className="flex-1 px-6 py-5 overflow-y-auto">
 
         {/* Header */}
@@ -334,5 +335,6 @@ export default function ExpensesPage() {
         </div>
       </main>
     </div>
+    </DashboardLayout>
   );
 }

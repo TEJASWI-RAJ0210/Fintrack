@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Sidebar from "@/components/layout/Sidebar";
+import DashboardLayout from '../dashboard/layout'
 
 export default function BudgetsPage() {
   const [budgets,    setBudgets]    = useState([]);
@@ -125,8 +126,9 @@ export default function BudgetsPage() {
     acc + (b.remaining > 0 ? b.remaining : 0), 0);
 
   return (
+    <DashboardLayout>
     <div className="flex min-h-screen bg-[#05070d] text-white">
-      <Sidebar />
+    
       <main className="flex-1 p-8">
 
         {/* Header */}
@@ -252,5 +254,6 @@ export default function BudgetsPage() {
         </div>
       </main>
     </div>
+    </DashboardLayout>
   );
 }

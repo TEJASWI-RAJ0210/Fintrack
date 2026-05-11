@@ -32,11 +32,27 @@ export default function DashboardLayout({ children }) {
   if (status === 'unauthenticated') return null
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0A0A0F' }}>
-      <Sidebar />
-      <main style={{ flex: 1, overflowY: 'auto', minWidth: 0 }}>
-        {children}
-      </main>
-    </div>
+   <div
+  style={{
+    display: 'flex',
+    height: '100vh',
+    backgroundColor: '#0A0A0F',
+    overflow: 'hidden',
+  }}
+>
+  <Sidebar />
+
+  <main
+    style={{
+      flex: 1,
+      overflowY: 'auto',
+      minWidth: 0,
+      marginLeft: 240,
+      height: '100vh',
+    }}
+  >
+    {children}
+  </main>
+</div>
   )
 }

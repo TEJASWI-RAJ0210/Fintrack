@@ -22,8 +22,13 @@ export default function Sidebar() {
 
   return (
     <aside style={{
-      width: 240,
-      minHeight: '100vh',
+        width: 240,
+    height: '100vh',
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    overflowY: 'auto',
+    zIndex: 50,
       background: '#12121A',
       borderRight: '1px solid #2A2A3A',
       display: 'flex',

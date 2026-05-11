@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import DashboardLayout from '../dashboard/layout'
 
 export default function ReportsPage() {
   const [loading,    setLoading]    = useState(true);
@@ -136,8 +137,9 @@ export default function ReportsPage() {
   const avgDailySpend    = total / 30;
 
   return (
+    <DashboardLayout>
     <div className="min-h-screen bg-[#05070D] text-white flex overflow-hidden">
-      <Sidebar />
+      
 
       <main ref={reportRef} className="flex-1 px-6 py-5 overflow-y-auto">
 
@@ -416,5 +418,6 @@ export default function ReportsPage() {
         </div>
       </main>
     </div>
+    </DashboardLayout>
   );
 }

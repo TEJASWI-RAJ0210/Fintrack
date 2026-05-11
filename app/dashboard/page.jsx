@@ -38,12 +38,55 @@ function DarkTooltip({ active, payload, label }) {
       borderRadius: 10, padding: '10px 14px',
     }}>
       {label && <p style={{ color: '#94A3B8', fontSize: 11, marginBottom: 4 }}>{label}</p>}
-      <p style={{
-        color: '#F1F5F9', fontSize: 14, fontWeight: 600,
-        fontFamily: 'JetBrains Mono, monospace',
-      }}>
+      <p style={{ color: '#F1F5F9', fontSize: 14, fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}>
         ₹{parseFloat(payload[0].value).toLocaleString('en-IN')}
       </p>
+    </div>
+  )
+}
+
+// Custom tooltip for pie chart — shows name + amount + %
+function PieTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null
+  const entry = payload[0]
+  return (
+    <div style={{
+      background: '#1A1A26', border: '1px solid #2A2A3A',
+      borderRadius: 10, padding: '10px 14px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <div style={{ width: 8, height: 8, borderRadius: '50%', background: entry.payload.color }} />
+        <p style={{ color: '#94A3B8', fontSize: 11 }}>{entry.name}</p>
+      </div>
+      <p style={{ color: '#F1F5F9', fontSize: 14, fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}>
+        ₹{parseFloat(entry.value).toLocaleString('en-IN')}
+      </p>
+      <p style={{ color: entry.payload.color, fontSize: 11, marginTop: 2 }}>
+        {entry.payload.percent}%
+      </p>
+    </div>
+  )
+}
+
+// Custom legend for pie chart
+function CustomLegend({ data, total }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center' }}>
+      {data.map((entry, i) => {
+        const pct = total > 0 ? Math.round((parseFloat(entry.total) / total) * 100) : 0
+        return (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: entry.color, flexShrink: 0,
+            }} />
+            <span style={{ color: '#94A3B8', fontSize: 11, flex: 1 }}>{entry.name}</span>
+            <span style={{ color: '#F1F5F9', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}>
+              {pct}%
+            </span>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -76,8 +119,15 @@ export default function DashboardPage() {
   useEffect(() => {
     fetch('/api/dashboard')
       .then(r => r.ok ? r.json() : Promise.reject())
-      .then(d => { setStats(d); setLoading(false) })
-      .catch(()  => { setStats(MOCK_STATS); setLoading(false) })
+      .then(d => {
+        console.log('Dashboard API response:', d)
+        setStats(d)
+        setLoading(false)
+      })
+      .catch(() => {
+        setStats(MOCK_STATS)
+        setLoading(false)
+      })
   }, [])
 
   if (loading) {
@@ -93,7 +143,24 @@ export default function DashboardPage() {
 
   const monthName  = format(new Date(), 'MMMM yyyy')
   const firstName  = session?.user?.name?.split(' ')[0] || 'there'
-  const totalSpent = stats?.totalThisMonth || 0
+  const totalSpent = parseFloat(stats?.totalThisMonth || 0)
+
+  // Normalize byCategory — handle both shapes your teammate's API might return
+  const rawCategories = stats?.byCategory || []
+  const pieData = rawCategories
+    .map(c => ({
+      name:    c.name  || 'Uncategorized',
+      color:   c.color || '#9CA3AF',
+      total:   parseFloat(c.total || 0),
+      percent: totalSpent > 0 ? Math.round((parseFloat(c.total || 0) / totalSpent) * 100) : 0,
+    }))
+    .filter(c => c.total > 0) // only show categories with actual spending
+
+  // Normalize monthlyTrend
+  const trendData = (stats?.monthlyTrend || []).map(t => ({
+    month_label: t.month_label || t.label || '',
+    total:       parseFloat(t.total || 0),
+  }))
 
   return (
     <div style={{ padding: '36px 40px' }}>
@@ -134,82 +201,161 @@ export default function DashboardPage() {
       )}
 
       {/* Stat cards */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 16, marginBottom: 24,
-      }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
         <StatCard label="Total Spent This Month" value={`₹${totalSpent.toLocaleString('en-IN')}`} emoji="💸" accent="#22C55E" isMono />
-        <StatCard label="Categories Tracked"     value={stats?.byCategory?.length || 0}            emoji="🏷️" accent="#3B82F6" />
+        <StatCard label="Categories Tracked"     value={pieData.length}                             emoji="🏷️" accent="#3B82F6" />
         <StatCard
           label="Budget Alerts"
-          value={stats?.budgetAlerts?.length > 0 ? `${stats.budgetAlerts.length} alert${stats.budgetAlerts.length > 1 ? 's' : ''}` : 'All clear'}
+          value={stats?.budgetAlerts?.length > 0
+            ? `${stats.budgetAlerts.length} alert${stats.budgetAlerts.length > 1 ? 's' : ''}`
+            : 'All clear'}
           emoji={stats?.budgetAlerts?.length > 0 ? '⚠️' : '✅'}
           accent={stats?.budgetAlerts?.length > 0 ? '#F59E0B' : '#22C55E'}
         />
       </div>
 
-      {/* Charts */}
+      {/* Charts row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+
+        {/* Bar chart */}
         <div style={{ background: '#12121A', border: '1px solid #2A2A3A', borderRadius: 16, padding: 24 }}>
-          <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 16, fontWeight: 600, color: '#F1F5F9', marginBottom: 20 }}>
+          <h2 style={{
+            fontFamily: 'Plus Jakarta Sans, sans-serif',
+            fontSize: 16, fontWeight: 600, color: '#F1F5F9', marginBottom: 20,
+          }}>
             Monthly Spending Trend
           </h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={stats?.monthlyTrend || []} barSize={28}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3A" vertical={false} />
-              <XAxis dataKey="month_label" tick={{ fill: '#475569', fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#475569', fontSize: 12 }} axisLine={false} tickLine={false}
-                tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} />
-              <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-              <Bar dataKey="total" fill="#22C55E" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {trendData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={trendData} barSize={28}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3A" vertical={false} />
+                <XAxis dataKey="month_label" tick={{ fill: '#475569', fontSize: 12 }}
+                  axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#475569', fontSize: 12 }} axisLine={false} tickLine={false}
+                  tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} />
+                <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                <Bar dataKey="total" fill="#22C55E" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <p style={{ color: '#475569', fontSize: 13 }}>No trend data yet</p>
+            </div>
+          )}
         </div>
 
+        {/* Pie chart — FIXED */}
         <div style={{ background: '#12121A', border: '1px solid #2A2A3A', borderRadius: 16, padding: 24 }}>
-          <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 16, fontWeight: 600, color: '#F1F5F9', marginBottom: 20 }}>
+          <h2 style={{
+            fontFamily: 'Plus Jakarta Sans, sans-serif',
+            fontSize: 16, fontWeight: 600, color: '#F1F5F9', marginBottom: 20,
+          }}>
             Spending by Category
           </h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie data={stats?.byCategory || []} dataKey="total" nameKey="name"
-                cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3}>
-                {(stats?.byCategory || []).map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip content={<DarkTooltip />} />
-              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: '#94A3B8' }} />
-            </PieChart>
-          </ResponsiveContainer>
+
+          {pieData.length > 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              {/* Pie chart — left side */}
+              <div style={{ flex: '0 0 200px' }}>
+                <ResponsiveContainer width={200} height={200}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      dataKey="total"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={52}
+                      outerRadius={82}
+                      paddingAngle={3}
+                      strokeWidth={0}
+                    >
+                      {pieData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<PieTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Center label overlay */}
+              <div style={{ position: 'relative', flex: '0 0 200px', marginLeft: -200 }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '50%', left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  textAlign: 'center', pointerEvents: 'none',
+                  marginTop: -10,
+                }}>
+                  <p style={{ color: '#F1F5F9', fontSize: 13, fontWeight: 700,
+                    fontFamily: 'JetBrains Mono, monospace', lineHeight: 1 }}>
+                    ₹{totalSpent.toLocaleString('en-IN')}
+                  </p>
+                  <p style={{ color: '#475569', fontSize: 10, marginTop: 3 }}>total</p>
+                </div>
+              </div>
+
+              {/* Legend — right side */}
+              <div style={{ flex: 1 }}>
+                <CustomLegend data={pieData} total={totalSpent} />
+              </div>
+            </div>
+          ) : (
+            <div style={{ height: 220, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <p style={{ color: '#475569', fontSize: 13 }}>No spending data yet</p>
+              <p style={{ color: '#2A2A3A', fontSize: 11 }}>Add expenses to see the breakdown</p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Top categories */}
       <div style={{ background: '#12121A', border: '1px solid #2A2A3A', borderRadius: 16, padding: 24 }}>
-        <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 16, fontWeight: 600, color: '#F1F5F9', marginBottom: 20 }}>
+        <h2 style={{
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: 16, fontWeight: 600, color: '#F1F5F9', marginBottom: 20,
+        }}>
           Top Categories
         </h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {stats?.byCategory?.map((cat, i) => {
-            const pct = Math.round((parseFloat(cat.total) / totalSpent) * 100)
-            return (
+        {pieData.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {pieData.map((cat, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: cat.color, flexShrink: 0 }} />
-                <span style={{ color: '#94A3B8', fontSize: 13, width: 140, flexShrink: 0 }}>{cat.name}</span>
+                <div style={{ width: 10, height: 10, borderRadius: '50%',
+                  background: cat.color, flexShrink: 0 }} />
+                <span style={{ color: '#94A3B8', fontSize: 13, width: 140, flexShrink: 0 }}>
+                  {cat.name}
+                </span>
                 <div style={{ flex: 1, height: 6, background: '#1A1A26', borderRadius: 999, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', borderRadius: 999, width: `${pct}%`, background: cat.color, transition: 'width 700ms ease' }} />
+                  <div style={{
+                    height: '100%', borderRadius: 999,
+                    width: `${cat.percent}%`,
+                    background: cat.color,
+                    transition: 'width 700ms ease',
+                  }} />
                 </div>
-                <span style={{ color: '#F1F5F9', fontSize: 13, fontWeight: 600, fontFamily: 'JetBrains Mono, monospace', width: 96, textAlign: 'right', flexShrink: 0 }}>
+                <span style={{
+                  color: '#F1F5F9', fontSize: 13, fontWeight: 600,
+                  fontFamily: 'JetBrains Mono, monospace',
+                  width: 96, textAlign: 'right', flexShrink: 0,
+                }}>
                   ₹{parseFloat(cat.total).toLocaleString('en-IN')}
                 </span>
-                <span style={{ color: '#475569', fontSize: 12, width: 34, textAlign: 'right', flexShrink: 0 }}>{pct}%</span>
+                <span style={{ color: '#475569', fontSize: 12, width: 34,
+                  textAlign: 'right', flexShrink: 0 }}>
+                  {cat.percent}%
+                </span>
               </div>
-            )
-          })}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
+            No expense data yet. Add expenses to see the breakdown.
+          </p>
+        )}
       </div>
-
     </div>
   )
 }
