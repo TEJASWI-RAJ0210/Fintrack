@@ -159,40 +159,45 @@ export default function SettingsPage() {
   }
 
   // ── Load custom categories from API ──
-  useEffect(() => {
-    fetch('/api/categories')
-      .then(r => r.ok ? r.json() : [])
-      .then(data => {
-        // Only keep user's custom ones (not defaults)
-        const custom = data.filter(c => !c.is_default)
-        setCustomCategories(custom)
-      })
-      .catch(() => {}) // API not ready yet
-  }, [])
+ useEffect(() => {
+  fetch('/api/categories')
+    .then(r => r.ok ? r.json() : { categories: [] })
+    .then(data => {
+      const all    = data.categories || []
+      const custom = all.filter(c => !c.is_default)
+      setCustomCategories(custom)
+    })
+    .catch(() => {})
+}, [])
+ // ── Add custom category ──
+const handleAddCategory = async () => {
+  if (!newCatName.trim()) return
+  setSavingCat(true)
+  try {
+    const res = await fetch('/api/categories', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ name: newCatName.trim(), color: newCatColor }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Failed to add category')
 
-  // ── Add custom category ──
-  const handleAddCategory = async () => {
-    if (!newCatName.trim()) return
-    setSavingCat(true)
-    try {
-      const res = await fetch('/api/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newCatName.trim(), color: newCatColor }),
-      })
-      if (res.ok) {
-        const created = await res.json()
-        setCustomCategories(prev => [...prev, created])
-        setNewCatName('')
-        setNewCatColor('#22C55E')
-        setShowAddCategory(false)
-        showToast('Category added successfully')
-      }
-    } catch {
-      showToast('Failed to add category', 'error')
-    }
-    setSavingCat(false)
+    // API returns { success: true, category: {...} } OR the object directly
+    // handle both cases
+    const created = data.category || data
+    if (!created.id) throw new Error('Invalid response from server')
+
+    setCustomCategories(prev => [...prev, created])
+    setNewCatName('')
+    setNewCatColor('#22C55E')
+    setShowAddCategory(false)
+    showToast('Category added successfully')
+  } catch (err) {
+    console.error('Add category error:', err)
+    showToast(err.message || 'Failed to add category', 'error')
   }
+  setSavingCat(false)
+}
 
   // ── Delete custom category ──
   const handleDeleteCategory = async (id) => {
@@ -205,63 +210,81 @@ export default function SettingsPage() {
     }
   }
 
-  // ── Export CSV ──
-  const handleExportCSV = async () => {
-    setExportingCSV(true)
-    try {
-      const res = await fetch('/api/expenses')
-      const expenses = await res.json()
+ // ── Export CSV ──
+const handleExportCSV = async () => {
+  setExportingCSV(true)
+  try {
+    const res      = await fetch('/api/expenses')
+    const data     = await res.json()
+    // API returns { success: true, expenses: [...] }
+    const expenses = data.expenses || []
 
-      const headers = 'date,amount,description,category\n'
-      const rows = expenses.map(e =>
-        `${e.date},${e.amount},"${e.description || ''}","${e.category_name || ''}"`
-      ).join('\n')
-
-      const blob = new Blob([headers + rows], { type: 'text/csv' })
-      const url  = URL.createObjectURL(blob)
-      const a    = document.createElement('a')
-      a.href     = url
-      a.download = `fintrack-expenses-${new Date().toISOString().split('T')[0]}.csv`
-      a.click()
-      URL.revokeObjectURL(url)
-      showToast('CSV exported successfully')
-    } catch {
-      showToast('Export failed', 'error')
+    if (expenses.length === 0) {
+      showToast('No expenses to export', 'error')
+      setExportingCSV(false)
+      return
     }
-    setExportingCSV(false)
+
+    const headers = 'date,amount,description,category\n'
+    const rows    = expenses.map(e =>
+      // API returns 'expense_date' and 'category' fields
+      `${e.expense_date?.split('T')[0] || ''},${e.amount},"${e.description || ''}","${e.category || ''}"`
+    ).join('\n')
+
+    const blob     = new Blob([headers + rows], { type: 'text/csv' })
+    const url      = URL.createObjectURL(blob)
+    const a        = document.createElement('a')
+    a.href         = url
+    a.download     = `fintrack-expenses-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    showToast('CSV exported successfully')
+  } catch (err) {
+    console.error('Export CSV error:', err)
+    showToast('Export failed: ' + err.message, 'error')
   }
+  setExportingCSV(false)
+}
 
-  // ── Export JSON ──
-  const handleExportJSON = async () => {
-    setExportingJSON(true)
-    try {
-      const [expRes, budRes] = await Promise.all([
-        fetch('/api/expenses'),
-        fetch('/api/budgets'),
-      ])
-      const expenses = await expRes.json()
-      const budgets  = await budRes.json()
+ // ── Export JSON ──
+const handleExportJSON = async () => {
+  setExportingJSON(true)
+  try {
+    const [expRes, budRes] = await Promise.all([
+      fetch('/api/expenses'),
+      fetch('/api/budgets'),
+    ])
+    const expData = await expRes.json()
+    const budData = await budRes.json()
+    // Both APIs return { success: true, expenses/budgets: [...] }
+    const expenses = expData.expenses || []
+    const budgets  = budData.budgets  || []
 
-      const data = {
-        exported_at: new Date().toISOString(),
-        user: session?.user?.email,
-        expenses,
-        budgets,
-      }
-
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-      const url  = URL.createObjectURL(blob)
-      const a    = document.createElement('a')
-      a.href     = url
-      a.download = `fintrack-data-${new Date().toISOString().split('T')[0]}.json`
-      a.click()
-      URL.revokeObjectURL(url)
-      showToast('JSON exported successfully')
-    } catch {
-      showToast('Export failed', 'error')
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      user:        session?.user?.email,
+      expenses,
+      budgets,
     }
-    setExportingJSON(false)
+
+    const blob     = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const url      = URL.createObjectURL(blob)
+    const a        = document.createElement('a')
+    a.href         = url
+    a.download     = `fintrack-data-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    showToast('JSON exported successfully')
+  } catch (err) {
+    console.error('Export JSON error:', err)
+    showToast('Export failed: ' + err.message, 'error')
   }
+  setExportingJSON(false)
+}
 
   // ── Delete all data ──
   const handleDeleteAll = async () => {

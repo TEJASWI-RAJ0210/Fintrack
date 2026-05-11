@@ -9,14 +9,13 @@ export async function DELETE(request, { params }) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     await query(
-      `DELETE FROM categories
-       WHERE id=$1 AND user_id=$2 AND is_default=false`,
+      'DELETE FROM budgets WHERE id=$1 AND user_id=$2',
       [params.id, session.user.id]
     )
 
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error('[API] DELETE /api/categories/[id]:', err.message)
+    console.error('[API] DELETE /api/budgets/[id]:', err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
