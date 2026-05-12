@@ -182,8 +182,6 @@ const handleAddCategory = async () => {
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Failed to add category')
 
-    // API returns { success: true, category: {...} } OR the object directly
-    // handle both cases
     const created = data.category || data
     if (!created.id) throw new Error('Invalid response from server')
 
@@ -216,7 +214,6 @@ const handleExportCSV = async () => {
   try {
     const res      = await fetch('/api/expenses')
     const data     = await res.json()
-    // API returns { success: true, expenses: [...] }
     const expenses = data.expenses || []
 
     if (expenses.length === 0) {
@@ -227,7 +224,6 @@ const handleExportCSV = async () => {
 
     const headers = 'date,amount,description,category\n'
     const rows    = expenses.map(e =>
-      // API returns 'expense_date' and 'category' fields
       `${e.expense_date?.split('T')[0] || ''},${e.amount},"${e.description || ''}","${e.category || ''}"`
     ).join('\n')
 
@@ -258,7 +254,6 @@ const handleExportJSON = async () => {
     ])
     const expData = await expRes.json()
     const budData = await budRes.json()
-    // Both APIs return { success: true, expenses/budgets: [...] }
     const expenses = expData.expenses || []
     const budgets  = budData.budgets  || []
 
@@ -304,446 +299,323 @@ const handleExportJSON = async () => {
   return (
       <DashboardLayout>
         <div style={{
-      padding: '36px 40px', maxWidth: 720,
+      padding: '24px 16px', maxWidth: 720,
       animation: 'fadeUp 0.3s ease both',
     }}>
-      <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(8px);} to { opacity:1; transform:translateY(0);} }`}</style>
+      <style>{`
+        @keyframes fadeUp { from { opacity:0; transform:translateY(8px);} to { opacity:1; transform:translateY(0);} }
+
+        .settings-wrapper {
+          padding: 36px 40px;
+        }
+        .profile-row {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          flex-wrap: wrap;
+        }
+        .profile-info {
+          flex: 1;
+          min-width: 0;
+        }
+        .signout-btn {
+          flex-shrink: 0;
+        }
+        .categories-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+          margin-bottom: 24px;
+        }
+        .export-row {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .export-btn {
+          flex: 1;
+          min-width: 130px;
+        }
+        .danger-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        @media (max-width: 640px) {
+          .settings-wrapper {
+            padding: 20px 16px !important;
+          }
+          .profile-row {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .signout-btn {
+            width: 100%;
+            text-align: center;
+            justify-content: center;
+          }
+          .categories-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+          .export-row {
+            flex-direction: column;
+          }
+          .export-btn {
+            width: 100%;
+          }
+          .danger-row {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .danger-delete-btn {
+            width: 100%;
+            margin-left: 0 !important;
+            margin-top: 12px;
+          }
+        }
+
+        @media (min-width: 641px) and (max-width: 900px) {
+          .settings-wrapper {
+            padding: 24px 20px !important;
+          }
+          .categories-grid {
+            grid-template-columns: repeat(3, 1fr) !important;
+          }
+        }
+      `}</style>
 
       {/* ── Page header ── */}
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{
-          fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: 30, fontWeight: 700, color: '#F1F5F9', marginBottom: 6,
-        }}>
-          Settings
-        </h1>
-        <p style={{ color: '#475569', fontSize: 14 }}>
-          Manage your profile, categories, and data
-        </p>
-      </div>
+      <div className="settings-wrapper" style={{ paddingBottom: 0, paddingTop: 0, maxWidth: 720 }}>
+        <div style={{ marginBottom: 32 }}>
+          <h1 style={{
+            fontFamily: 'Plus Jakarta Sans, sans-serif',
+            fontSize: 30, fontWeight: 700, color: '#F1F5F9', marginBottom: 6,
+          }}>
+            Settings
+          </h1>
+          <p style={{ color: '#475569', fontSize: 14 }}>
+            Manage your profile, categories, and data
+          </p>
+        </div>
 
-      {/* ════════════════════════════════
-          SECTION 1 — Profile
-      ════════════════════════════════ */}
-      <Section
-        icon={<IconUser size={16} />}
-        title="Profile"
-        subtitle="Your account information from Google"
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {/* Avatar */}
-          {session?.user?.image ? (
-            <Image
-              src={session.user.image}
-              alt="Profile"
-              width={64} height={64}
-              style={{ borderRadius: '50%', border: '2px solid #2A2A3A', flexShrink: 0 }}
-            />
-          ) : (
-            <div style={{
-              width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
-              background: 'rgba(34,197,94,0.1)',
-              border: '2px solid rgba(34,197,94,0.2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#22C55E', fontSize: 24, fontWeight: 700,
-            }}>
-              {session?.user?.name?.[0]?.toUpperCase() || 'U'}
+        {/* ════════════════════════════════
+            SECTION 1 — Profile
+        ════════════════════════════════ */}
+        <Section
+          icon={<IconUser size={16} />}
+          title="Profile"
+          subtitle="Your account information from Google"
+        >
+          <div className="profile-row">
+            {/* Avatar */}
+            {session?.user?.image ? (
+              <Image
+                src={session.user.image}
+                alt="Profile"
+                width={64} height={64}
+                style={{ borderRadius: '50%', border: '2px solid #2A2A3A', flexShrink: 0 }}
+              />
+            ) : (
+              <div style={{
+                width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
+                background: 'rgba(34,197,94,0.1)',
+                border: '2px solid rgba(34,197,94,0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#22C55E', fontSize: 24, fontWeight: 700,
+              }}>
+                {session?.user?.name?.[0]?.toUpperCase() || 'U'}
+              </div>
+            )}
+
+            {/* Info */}
+            <div className="profile-info">
+              <p style={{
+                color: '#F1F5F9', fontSize: 18, fontWeight: 600,
+                fontFamily: 'Plus Jakarta Sans, sans-serif', marginBottom: 4,
+              }}>
+                {session?.user?.name || 'User'}
+              </p>
+              <p style={{ color: '#94A3B8', fontSize: 13, marginBottom: 10 }}>
+                {session?.user?.email}
+              </p>
+              {/* Google badge */}
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: '#1A1A26', border: '1px solid #2A2A3A',
+                borderRadius: 999, padding: '4px 10px',
+              }}>
+                <IconGoogle size={13} />
+                <span style={{ color: '#94A3B8', fontSize: 11, fontWeight: 500 }}>
+                  Signed in with Google
+                </span>
+              </div>
             </div>
+
+            {/* Sign out button */}
+            <button
+              className="signout-btn"
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              style={{
+                background: 'transparent',
+                border: '1px solid #2A2A3A',
+                borderRadius: 10, padding: '8px 16px',
+                color: '#94A3B8', fontSize: 13, cursor: 'pointer',
+                transition: 'all 150ms', fontFamily: 'inherit',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = '#EF4444'
+                e.currentTarget.style.color = '#EF4444'
+                e.currentTarget.style.background = 'rgba(239,68,68,0.05)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = '#2A2A3A'
+                e.currentTarget.style.color = '#94A3B8'
+                e.currentTarget.style.background = 'transparent'
+              }}
+            >
+              Sign out
+            </button>
+          </div>
+        </Section>
+
+        {/* ════════════════════════════════
+            SECTION 2 — Categories
+        ════════════════════════════════ */}
+        <Section
+          icon={<IconTag size={16} />}
+          title="Categories"
+          subtitle="Default categories + your custom ones"
+        >
+          {/* Default categories grid */}
+          <p style={{ color: '#475569', fontSize: 12, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Default
+          </p>
+          <div className="categories-grid">
+            {DEFAULT_CATEGORIES.map(cat => (
+              <div key={cat.name} style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: '#1A1A26', border: '1px solid #2A2A3A',
+                borderRadius: 10, padding: '8px 10px',
+              }}>
+                <div style={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: cat.color, flexShrink: 0,
+                }} />
+                <span style={{ color: '#94A3B8', fontSize: 12, overflow: 'hidden',
+                  textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {cat.name}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Custom categories */}
+          {customCategories.length > 0 && (
+            <>
+              <p style={{ color: '#475569', fontSize: 12, marginBottom: 12,
+                textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Custom
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+                {customCategories.map(cat => (
+                  <div key={cat.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    background: '#1A1A26', border: '1px solid #2A2A3A',
+                    borderRadius: 10, padding: '10px 14px',
+                  }}>
+                    <div style={{
+                      width: 10, height: 10, borderRadius: '50%',
+                      background: cat.color, flexShrink: 0,
+                    }} />
+                    <span style={{ color: '#F1F5F9', fontSize: 13, flex: 1 }}>
+                      {cat.name}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteCategory(cat.id)}
+                      style={{
+                        background: 'transparent', border: 'none',
+                        cursor: 'pointer', color: '#475569', padding: 4,
+                        borderRadius: 6, transition: 'all 150ms',
+                        display: 'flex', alignItems: 'center',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.color = '#EF4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.08)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = '#475569'; e.currentTarget.style.background = 'transparent' }}
+                    >
+                      <IconTrash size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
-          {/* Info */}
-          <div style={{ flex: 1 }}>
-            <p style={{
-              color: '#F1F5F9', fontSize: 18, fontWeight: 600,
-              fontFamily: 'Plus Jakarta Sans, sans-serif', marginBottom: 4,
-            }}>
-              {session?.user?.name || 'User'}
-            </p>
-            <p style={{ color: '#94A3B8', fontSize: 13, marginBottom: 10 }}>
-              {session?.user?.email}
-            </p>
-            {/* Google badge */}
+          {/* Add category form */}
+          {showAddCategory ? (
             <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
               background: '#1A1A26', border: '1px solid #2A2A3A',
-              borderRadius: 999, padding: '4px 10px',
+              borderRadius: 12, padding: 16, marginBottom: 12,
             }}>
-              <IconGoogle size={13} />
-              <span style={{ color: '#94A3B8', fontSize: 11, fontWeight: 500 }}>
-                Signed in with Google
-              </span>
-            </div>
-          </div>
-
-          {/* Sign out button */}
-          <button
-            onClick={() => signOut({ callbackUrl: '/login' })}
-            style={{
-              background: 'transparent',
-              border: '1px solid #2A2A3A',
-              borderRadius: 10, padding: '8px 16px',
-              color: '#94A3B8', fontSize: 13, cursor: 'pointer',
-              transition: 'all 150ms', fontFamily: 'inherit',
-              flexShrink: 0,
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = '#EF4444'
-              e.currentTarget.style.color = '#EF4444'
-              e.currentTarget.style.background = 'rgba(239,68,68,0.05)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = '#2A2A3A'
-              e.currentTarget.style.color = '#94A3B8'
-              e.currentTarget.style.background = 'transparent'
-            }}
-          >
-            Sign out
-          </button>
-        </div>
-      </Section>
-
-      {/* ════════════════════════════════
-          SECTION 2 — Categories
-      ════════════════════════════════ */}
-      <Section
-        icon={<IconTag size={16} />}
-        title="Categories"
-        subtitle="Default categories + your custom ones"
-      >
-        {/* Default categories grid */}
-        <p style={{ color: '#475569', fontSize: 12, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Default
-        </p>
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 8, marginBottom: 24,
-        }}>
-          {DEFAULT_CATEGORIES.map(cat => (
-            <div key={cat.name} style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              background: '#1A1A26', border: '1px solid #2A2A3A',
-              borderRadius: 10, padding: '8px 10px',
-            }}>
-              <div style={{
-                width: 8, height: 8, borderRadius: '50%',
-                background: cat.color, flexShrink: 0,
-              }} />
-              <span style={{ color: '#94A3B8', fontSize: 12, overflow: 'hidden',
-                textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {cat.name}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Custom categories */}
-        {customCategories.length > 0 && (
-          <>
-            <p style={{ color: '#475569', fontSize: 12, marginBottom: 12,
-              textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Custom
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
-              {customCategories.map(cat => (
-                <div key={cat.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  background: '#1A1A26', border: '1px solid #2A2A3A',
-                  borderRadius: 10, padding: '10px 14px',
-                }}>
-                  <div style={{
-                    width: 10, height: 10, borderRadius: '50%',
-                    background: cat.color, flexShrink: 0,
-                  }} />
-                  <span style={{ color: '#F1F5F9', fontSize: 13, flex: 1 }}>
-                    {cat.name}
-                  </span>
-                  <button
-                    onClick={() => handleDeleteCategory(cat.id)}
-                    style={{
-                      background: 'transparent', border: 'none',
-                      cursor: 'pointer', color: '#475569', padding: 4,
-                      borderRadius: 6, transition: 'all 150ms',
-                      display: 'flex', alignItems: 'center',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.color = '#EF4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.08)' }}
-                    onMouseLeave={e => { e.currentTarget.style.color = '#475569'; e.currentTarget.style.background = 'transparent' }}
-                  >
-                    <IconTrash size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* Add category form */}
-        {showAddCategory ? (
-          <div style={{
-            background: '#1A1A26', border: '1px solid #2A2A3A',
-            borderRadius: 12, padding: 16, marginBottom: 12,
-          }}>
-            <p style={{ color: '#F1F5F9', fontSize: 13, fontWeight: 500, marginBottom: 12 }}>
-              New category
-            </p>
-            {/* Name input */}
-            <input
-              type="text"
-              placeholder="Category name"
-              value={newCatName}
-              onChange={e => setNewCatName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
-              style={{
-                width: '100%', background: '#0A0A0F',
-                border: '1px solid #2A2A3A', borderRadius: 10,
-                padding: '9px 12px', color: '#F1F5F9', fontSize: 13,
-                outline: 'none', marginBottom: 12, fontFamily: 'inherit',
-              }}
-              autoFocus
-            />
-            {/* Color picker */}
-            <p style={{ color: '#475569', fontSize: 12, marginBottom: 8 }}>Pick a color</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-              {COLOR_OPTIONS.map(color => (
-                <button
-                  key={color}
-                  onClick={() => setNewCatColor(color)}
-                  style={{
-                    width: 26, height: 26, borderRadius: '50%',
-                    background: color, border: 'none', cursor: 'pointer',
-                    outline: newCatColor === color ? `2px solid ${color}` : 'none',
-                    outlineOffset: 2,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'transform 150ms',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.15)' }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
-                >
-                  {newCatColor === color && <IconCheck size={12} />}
-                </button>
-              ))}
-            </div>
-            {/* Buttons */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={handleAddCategory}
-                disabled={!newCatName.trim() || savingCat}
-                style={{
-                  background: '#22C55E', color: '#0A0A0F',
-                  border: 'none', borderRadius: 9,
-                  padding: '8px 16px', fontSize: 13, fontWeight: 600,
-                  cursor: newCatName.trim() ? 'pointer' : 'not-allowed',
-                  opacity: newCatName.trim() ? 1 : 0.5,
-                  fontFamily: 'inherit',
-                }}
-              >
-                {savingCat ? 'Saving…' : 'Add category'}
-              </button>
-              <button
-                onClick={() => { setShowAddCategory(false); setNewCatName(''); setNewCatColor('#22C55E') }}
-                style={{
-                  background: 'transparent', border: '1px solid #2A2A3A',
-                  borderRadius: 9, padding: '8px 14px',
-                  color: '#94A3B8', fontSize: 13, cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowAddCategory(true)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              background: 'transparent',
-              border: '1px dashed #2A2A3A',
-              borderRadius: 10, padding: '9px 14px',
-              color: '#475569', fontSize: 13, cursor: 'pointer',
-              transition: 'all 150ms', fontFamily: 'inherit',
-              width: '100%',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = '#22C55E'
-              e.currentTarget.style.color = '#22C55E'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = '#2A2A3A'
-              e.currentTarget.style.color = '#475569'
-            }}
-          >
-            <IconPlus size={14} />
-            Add custom category
-          </button>
-        )}
-      </Section>
-
-      {/* ════════════════════════════════
-          SECTION 3 — Data & Export
-      ════════════════════════════════ */}
-      <Section
-        icon={<IconDownload size={16} />}
-        title="Data & Export"
-        subtitle="Download all your data anytime"
-      >
-        <div style={{ display: 'flex', gap: 12 }}>
-          {/* Export CSV */}
-          <button
-            onClick={handleExportCSV}
-            disabled={exportingCSV}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              background: '#1A1A26', border: '1px solid #2A2A3A',
-              borderRadius: 10, padding: '10px 18px',
-              color: '#F1F5F9', fontSize: 13, fontWeight: 500,
-              cursor: 'pointer', transition: 'all 150ms',
-              opacity: exportingCSV ? 0.6 : 1, fontFamily: 'inherit',
-            }}
-            onMouseEnter={e => {
-              if (!exportingCSV) e.currentTarget.style.borderColor = '#22C55E'
-            }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '#2A2A3A' }}
-          >
-            <IconDownload size={14} />
-            {exportingCSV ? 'Exporting…' : 'Export CSV'}
-          </button>
-
-          {/* Export JSON */}
-          <button
-            onClick={handleExportJSON}
-            disabled={exportingJSON}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              background: '#1A1A26', border: '1px solid #2A2A3A',
-              borderRadius: 10, padding: '10px 18px',
-              color: '#F1F5F9', fontSize: 13, fontWeight: 500,
-              cursor: 'pointer', transition: 'all 150ms',
-              opacity: exportingJSON ? 0.6 : 1, fontFamily: 'inherit',
-            }}
-            onMouseEnter={e => {
-              if (!exportingJSON) e.currentTarget.style.borderColor = '#3B82F6'
-            }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '#2A2A3A' }}
-          >
-            <IconDownload size={14} />
-            {exportingJSON ? 'Exporting…' : 'Export JSON'}
-          </button>
-        </div>
-
-        <p style={{ color: '#475569', fontSize: 12, marginTop: 12 }}>
-          CSV exports your expenses as a spreadsheet. JSON exports all data including budgets.
-        </p>
-      </Section>
-
-      {/* ════════════════════════════════
-          SECTION 4 — Danger Zone
-      ════════════════════════════════ */}
-      <div style={{
-        background: '#12121A',
-        border: '1px solid rgba(239,68,68,0.25)',
-        borderRadius: 16, overflow: 'hidden',
-      }}>
-        {/* Header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          padding: '18px 24px',
-          borderBottom: '1px solid rgba(239,68,68,0.15)',
-          background: 'rgba(239,68,68,0.04)',
-        }}>
-          <div style={{
-            width: 34, height: 34,
-            background: 'rgba(239,68,68,0.1)',
-            border: '1px solid rgba(239,68,68,0.2)',
-            borderRadius: 9,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#EF4444',
-          }}>
-            <IconTrash size={16} />
-          </div>
-          <div>
-            <p style={{ color: '#EF4444', fontSize: 15, fontWeight: 600,
-              fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Danger Zone</p>
-            <p style={{ color: '#475569', fontSize: 12, marginTop: 2 }}>
-              Irreversible actions — proceed with caution
-            </p>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div style={{ padding: '20px 24px' }}>
-          {!deleteConfirm ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ color: '#F1F5F9', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                  Delete all data
-                </p>
-                <p style={{ color: '#475569', fontSize: 12 }}>
-                  Permanently removes all your expenses and budgets. Cannot be undone.
-                </p>
-              </div>
-              <button
-                onClick={() => setDeleteConfirm(true)}
-                style={{
-                  background: 'transparent',
-                  border: '1px solid rgba(239,68,68,0.3)',
-                  borderRadius: 10, padding: '8px 16px',
-                  color: '#EF4444', fontSize: 13, fontWeight: 500,
-                  cursor: 'pointer', transition: 'all 150ms',
-                  fontFamily: 'inherit', flexShrink: 0, marginLeft: 16,
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = 'rgba(239,68,68,0.08)'
-                  e.currentTarget.style.borderColor = '#EF4444'
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)'
-                }}
-              >
-                Delete all data
-              </button>
-            </div>
-          ) : (
-            // Confirmation step
-            <div>
-              <p style={{ color: '#F1F5F9', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
-                Are you absolutely sure?
+              <p style={{ color: '#F1F5F9', fontSize: 13, fontWeight: 500, marginBottom: 12 }}>
+                New category
               </p>
-              <p style={{ color: '#94A3B8', fontSize: 13, marginBottom: 16, lineHeight: 1.6 }}>
-                This will permanently delete <strong style={{ color: '#F1F5F9' }}>all your expenses and budgets</strong>.
-                Type <strong style={{ color: '#EF4444', fontFamily: 'JetBrains Mono, monospace' }}>DELETE</strong> to confirm.
-              </p>
+              {/* Name input */}
               <input
                 type="text"
-                placeholder="Type DELETE to confirm"
-                value={deleteInput}
-                onChange={e => setDeleteInput(e.target.value)}
+                placeholder="Category name"
+                value={newCatName}
+                onChange={e => setNewCatName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
                 style={{
                   width: '100%', background: '#0A0A0F',
-                  border: `1px solid ${deleteInput === 'DELETE' ? '#EF4444' : '#2A2A3A'}`,
-                  borderRadius: 10, padding: '9px 12px',
-                  color: '#F1F5F9', fontSize: 13,
-                  outline: 'none', marginBottom: 12, fontFamily: 'JetBrains Mono, monospace',
-                  transition: 'border-color 150ms',
+                  border: '1px solid #2A2A3A', borderRadius: 10,
+                  padding: '9px 12px', color: '#F1F5F9', fontSize: 13,
+                  outline: 'none', marginBottom: 12, fontFamily: 'inherit',
+                  boxSizing: 'border-box',
                 }}
+                autoFocus
               />
-              <div style={{ display: 'flex', gap: 8 }}>
+              {/* Color picker */}
+              <p style={{ color: '#475569', fontSize: 12, marginBottom: 8 }}>Pick a color</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                {COLOR_OPTIONS.map(color => (
+                  <button
+                    key={color}
+                    onClick={() => setNewCatColor(color)}
+                    style={{
+                      width: 26, height: 26, borderRadius: '50%',
+                      background: color, border: 'none', cursor: 'pointer',
+                      outline: newCatColor === color ? `2px solid ${color}` : 'none',
+                      outlineOffset: 2,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'transform 150ms',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.15)' }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                  >
+                    {newCatColor === color && <IconCheck size={12} />}
+                  </button>
+                ))}
+              </div>
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
-                  onClick={handleDeleteAll}
-                  disabled={deleteInput !== 'DELETE' || deleting}
+                  onClick={handleAddCategory}
+                  disabled={!newCatName.trim() || savingCat}
                   style={{
-                    background: deleteInput === 'DELETE' ? '#EF4444' : '#2A2A3A',
+                    background: '#22C55E', color: '#0A0A0F',
                     border: 'none', borderRadius: 9,
                     padding: '8px 16px', fontSize: 13, fontWeight: 600,
-                    color: deleteInput === 'DELETE' ? '#fff' : '#475569',
-                    cursor: deleteInput === 'DELETE' ? 'pointer' : 'not-allowed',
-                    transition: 'all 150ms', fontFamily: 'inherit',
+                    cursor: newCatName.trim() ? 'pointer' : 'not-allowed',
+                    opacity: newCatName.trim() ? 1 : 0.5,
+                    fontFamily: 'inherit',
                   }}
                 >
-                  {deleting ? 'Deleting…' : 'Yes, delete everything'}
+                  {savingCat ? 'Saving…' : 'Add category'}
                 </button>
                 <button
-                  onClick={() => { setDeleteConfirm(false); setDeleteInput('') }}
+                  onClick={() => { setShowAddCategory(false); setNewCatName(''); setNewCatColor('#22C55E') }}
                   style={{
                     background: 'transparent', border: '1px solid #2A2A3A',
                     borderRadius: 9, padding: '8px 14px',
@@ -755,7 +627,216 @@ const handleExportJSON = async () => {
                 </button>
               </div>
             </div>
+          ) : (
+            <button
+              onClick={() => setShowAddCategory(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: 'transparent',
+                border: '1px dashed #2A2A3A',
+                borderRadius: 10, padding: '9px 14px',
+                color: '#475569', fontSize: 13, cursor: 'pointer',
+                transition: 'all 150ms', fontFamily: 'inherit',
+                width: '100%',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = '#22C55E'
+                e.currentTarget.style.color = '#22C55E'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = '#2A2A3A'
+                e.currentTarget.style.color = '#475569'
+              }}
+            >
+              <IconPlus size={14} />
+              Add custom category
+            </button>
           )}
+        </Section>
+
+        {/* ════════════════════════════════
+            SECTION 3 — Data & Export
+        ════════════════════════════════ */}
+        <Section
+          icon={<IconDownload size={16} />}
+          title="Data & Export"
+          subtitle="Download all your data anytime"
+        >
+          <div className="export-row">
+            {/* Export CSV */}
+            <button
+              className="export-btn"
+              onClick={handleExportCSV}
+              disabled={exportingCSV}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                background: '#1A1A26', border: '1px solid #2A2A3A',
+                borderRadius: 10, padding: '10px 18px',
+                color: '#F1F5F9', fontSize: 13, fontWeight: 500,
+                cursor: 'pointer', transition: 'all 150ms',
+                opacity: exportingCSV ? 0.6 : 1, fontFamily: 'inherit',
+              }}
+              onMouseEnter={e => {
+                if (!exportingCSV) e.currentTarget.style.borderColor = '#22C55E'
+              }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#2A2A3A' }}
+            >
+              <IconDownload size={14} />
+              {exportingCSV ? 'Exporting…' : 'Export CSV'}
+            </button>
+
+            {/* Export JSON */}
+            <button
+              className="export-btn"
+              onClick={handleExportJSON}
+              disabled={exportingJSON}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                background: '#1A1A26', border: '1px solid #2A2A3A',
+                borderRadius: 10, padding: '10px 18px',
+                color: '#F1F5F9', fontSize: 13, fontWeight: 500,
+                cursor: 'pointer', transition: 'all 150ms',
+                opacity: exportingJSON ? 0.6 : 1, fontFamily: 'inherit',
+              }}
+              onMouseEnter={e => {
+                if (!exportingJSON) e.currentTarget.style.borderColor = '#3B82F6'
+              }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#2A2A3A' }}
+            >
+              <IconDownload size={14} />
+              {exportingJSON ? 'Exporting…' : 'Export JSON'}
+            </button>
+          </div>
+
+          <p style={{ color: '#475569', fontSize: 12, marginTop: 12 }}>
+            CSV exports your expenses as a spreadsheet. JSON exports all data including budgets.
+          </p>
+        </Section>
+
+        {/* ════════════════════════════════
+            SECTION 4 — Danger Zone
+        ════════════════════════════════ */}
+        <div style={{
+          background: '#12121A',
+          border: '1px solid rgba(239,68,68,0.25)',
+          borderRadius: 16, overflow: 'hidden',
+        }}>
+          {/* Header */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '18px 24px',
+            borderBottom: '1px solid rgba(239,68,68,0.15)',
+            background: 'rgba(239,68,68,0.04)',
+          }}>
+            <div style={{
+              width: 34, height: 34,
+              background: 'rgba(239,68,68,0.1)',
+              border: '1px solid rgba(239,68,68,0.2)',
+              borderRadius: 9,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#EF4444',
+            }}>
+              <IconTrash size={16} />
+            </div>
+            <div>
+              <p style={{ color: '#EF4444', fontSize: 15, fontWeight: 600,
+                fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Danger Zone</p>
+              <p style={{ color: '#475569', fontSize: 12, marginTop: 2 }}>
+                Irreversible actions — proceed with caution
+              </p>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div style={{ padding: '20px 24px' }}>
+            {!deleteConfirm ? (
+              <div className="danger-row">
+                <div>
+                  <p style={{ color: '#F1F5F9', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                    Delete all data
+                  </p>
+                  <p style={{ color: '#475569', fontSize: 12 }}>
+                    Permanently removes all your expenses and budgets. Cannot be undone.
+                  </p>
+                </div>
+                <button
+                  className="danger-delete-btn"
+                  onClick={() => setDeleteConfirm(true)}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid rgba(239,68,68,0.3)',
+                    borderRadius: 10, padding: '8px 16px',
+                    color: '#EF4444', fontSize: 13, fontWeight: 500,
+                    cursor: 'pointer', transition: 'all 150ms',
+                    fontFamily: 'inherit', flexShrink: 0, marginLeft: 16,
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'rgba(239,68,68,0.08)'
+                    e.currentTarget.style.borderColor = '#EF4444'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)'
+                  }}
+                >
+                  Delete all data
+                </button>
+              </div>
+            ) : (
+              // Confirmation step
+              <div>
+                <p style={{ color: '#F1F5F9', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
+                  Are you absolutely sure?
+                </p>
+                <p style={{ color: '#94A3B8', fontSize: 13, marginBottom: 16, lineHeight: 1.6 }}>
+                  This will permanently delete <strong style={{ color: '#F1F5F9' }}>all your expenses and budgets</strong>.
+                  Type <strong style={{ color: '#EF4444', fontFamily: 'JetBrains Mono, monospace' }}>DELETE</strong> to confirm.
+                </p>
+                <input
+                  type="text"
+                  placeholder="Type DELETE to confirm"
+                  value={deleteInput}
+                  onChange={e => setDeleteInput(e.target.value)}
+                  style={{
+                    width: '100%', background: '#0A0A0F',
+                    border: `1px solid ${deleteInput === 'DELETE' ? '#EF4444' : '#2A2A3A'}`,
+                    borderRadius: 10, padding: '9px 12px',
+                    color: '#F1F5F9', fontSize: 13,
+                    outline: 'none', marginBottom: 12, fontFamily: 'JetBrains Mono, monospace',
+                    transition: 'border-color 150ms', boxSizing: 'border-box',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    onClick={handleDeleteAll}
+                    disabled={deleteInput !== 'DELETE' || deleting}
+                    style={{
+                      background: deleteInput === 'DELETE' ? '#EF4444' : '#2A2A3A',
+                      border: 'none', borderRadius: 9,
+                      padding: '8px 16px', fontSize: 13, fontWeight: 600,
+                      color: deleteInput === 'DELETE' ? '#fff' : '#475569',
+                      cursor: deleteInput === 'DELETE' ? 'pointer' : 'not-allowed',
+                      transition: 'all 150ms', fontFamily: 'inherit',
+                    }}
+                  >
+                    {deleting ? 'Deleting…' : 'Yes, delete everything'}
+                  </button>
+                  <button
+                    onClick={() => { setDeleteConfirm(false); setDeleteInput('') }}
+                    style={{
+                      background: 'transparent', border: '1px solid #2A2A3A',
+                      borderRadius: 9, padding: '8px 14px',
+                      color: '#94A3B8', fontSize: 13, cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -769,6 +850,7 @@ const handleExportJSON = async () => {
           display: 'flex', alignItems: 'center', gap: 10,
           boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
           animation: 'fadeUp 0.2s ease both',
+          maxWidth: 'calc(100vw - 48px)',
         }}>
           <div style={{
             width: 8, height: 8, borderRadius: '50%', flexShrink: 0,

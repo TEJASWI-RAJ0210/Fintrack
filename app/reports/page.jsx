@@ -16,7 +16,6 @@ export default function ReportsPage() {
 
   async function fetchReports() {
     try {
-      // Fetch both APIs in parallel
       const [dashRes, expRes] = await Promise.all([
         fetch("/api/dashboard"),
         fetch("/api/expenses"),
@@ -28,23 +27,19 @@ export default function ReportsPage() {
       console.log("Dashboard response:", dashboard);
       console.log("Expenses response:", expData);
 
-      // expenses API returns { success: true, expenses: [...] }
       const expensesList = expData.expenses || expData || [];
 
-      // dashboard API — handle both shapes
       const byCategory     = dashboard.byCategory     || [];
       const monthlyTrend   = dashboard.monthlyTrend   || [];
       const budgetAlerts   = dashboard.budgetAlerts   || [];
       const totalThisMonth = parseFloat(dashboard.totalThisMonth || 0);
 
-      // Build category list from byCategory
       const categories = byCategory.map(c => ({
         name:  c.name  || "Uncategorized",
         color: c.color || "#9CA3AF",
         total: parseFloat(c.total || 0),
       }));
 
-      // Group expenses by date to find highest spend day
       const byDay = expensesList.reduce((acc, e) => {
         const d = (e.expense_date || "").split("T")[0];
         if (d) acc[d] = (acc[d] || 0) + parseFloat(e.amount || 0);
@@ -58,14 +53,12 @@ export default function ReportsPage() {
         ? { expense_date: highestDayEntry[0], total: highestDayEntry[1] }
         : null;
 
-      // Build breakdown from budgetAlerts
       const breakdown = budgetAlerts.map(a => ({
         name:          a.category_name || a.name || "Unknown",
         monthly_limit: parseFloat(a.monthly_limit || 0),
         actual:        parseFloat(a.spent || 0),
       }));
 
-      // Build trend from monthlyTrend
       const trend = monthlyTrend.map(t => ({
         label: t.month_label,
         total: parseFloat(t.total || 0),
@@ -102,7 +95,6 @@ export default function ReportsPage() {
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       const pageHeight = pdf.internal.pageSize.getHeight();
 
-      // Handle multi-page PDFs
       if (pdfHeight <= pageHeight) {
         pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
       } else {
@@ -138,13 +130,118 @@ export default function ReportsPage() {
 
   return (
     <DashboardLayout>
+    <style>{`
+      .reports-grid-top {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+      .reports-grid-middle {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+      .reports-table-header {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        padding: 0.75rem 1.5rem;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: #6B7280;
+        border-bottom: 1px solid #151D31;
+      }
+      .reports-table-row {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #111827;
+        align-items: center;
+      }
+      .reports-table-row:hover {
+        background: #0F172A;
+      }
+      .insights-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+      }
+
+      @media (max-width: 768px) {
+        .reports-grid-top {
+          grid-template-columns: 1fr !important;
+        }
+        .reports-grid-middle {
+          grid-template-columns: 1fr !important;
+        }
+        .insights-grid {
+          grid-template-columns: 1fr 1fr !important;
+        }
+
+        /* Responsive table: hide Budget/Status cols, show key info */
+        .reports-table-header {
+          grid-template-columns: 2fr 1fr 1fr !important;
+          padding: 0.75rem 1rem;
+        }
+        .reports-table-header span:nth-child(2),
+        .reports-table-header span:nth-child(4) {
+          display: none;
+        }
+        .reports-table-row {
+          grid-template-columns: 2fr 1fr 1fr !important;
+          padding: 0.75rem 1rem;
+        }
+        .reports-table-row span:nth-child(2),
+        .reports-table-row span:nth-child(4) {
+          display: none;
+        }
+
+        .reports-header {
+          flex-wrap: wrap;
+          gap: 0.75rem;
+        }
+        .donut-container {
+          flex-direction: column !important;
+          align-items: center !important;
+          gap: 1.5rem !important;
+        }
+        .donut-legend {
+          width: 100% !important;
+        }
+        .donut-legend > div {
+          width: 100% !important;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .insights-grid {
+          grid-template-columns: 1fr !important;
+        }
+        .reports-table-header {
+          grid-template-columns: 1fr 1fr !important;
+          padding: 0.75rem 0.75rem;
+        }
+        .reports-table-header span:nth-child(3) {
+          display: none;
+        }
+        .reports-table-row {
+          grid-template-columns: 1fr 1fr !important;
+          padding: 0.75rem 0.75rem;
+        }
+        .reports-table-row span:nth-child(3) {
+          display: none;
+        }
+      }
+    `}</style>
     <div className="min-h-screen bg-[#05070D] text-white flex overflow-hidden">
       
 
-      <main ref={reportRef} className="flex-1 px-6 py-5 overflow-y-auto">
+      <main ref={reportRef} className="flex-1 px-4 py-5 overflow-y-auto" style={{ minWidth: 0 }}>
 
         {/* HEADER */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="reports-header flex items-center justify-between mb-6">
           <div>
             <h1 className="text-[26px] font-bold text-white">Reports</h1>
           </div>
@@ -167,10 +264,10 @@ export default function ReportsPage() {
         )}
 
         {/* TOP */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="reports-grid-top">
 
           {/* GRAPH */}
-          <div className="col-span-2 bg-[#0B1020] border border-[#151D31] rounded-2xl p-5 relative overflow-hidden min-h-[260px]">
+          <div className="bg-[#0B1020] border border-[#151D31] rounded-2xl p-5 relative overflow-hidden min-h-[260px]">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-2">
@@ -264,7 +361,7 @@ export default function ReportsPage() {
         </div>
 
         {/* MIDDLE */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="reports-grid-middle">
 
           {/* DONUT */}
           <div className="bg-[#0B1020] border border-[#151D31] rounded-2xl p-5 min-h-[290px]">
@@ -276,8 +373,8 @@ export default function ReportsPage() {
                 <p className="text-gray-600 text-sm">No data yet</p>
               </div>
             ) : (
-              <div className="flex items-center justify-between mt-6">
-                <div className="relative w-[170px] h-[170px] flex items-center justify-center">
+              <div className="donut-container flex items-center justify-between mt-6">
+                <div className="relative w-[170px] h-[170px] flex items-center justify-center" style={{ flexShrink: 0 }}>
                   <div className="absolute inset-0 rounded-full"
                     style={{
                       background: `conic-gradient(${categories.map((cat, index) => {
@@ -300,7 +397,7 @@ export default function ReportsPage() {
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="donut-legend space-y-3">
                   {categories.slice(0, 3).map((cat, index) => (
                     <div key={index}
                       className="bg-[#0E1423] border border-[#1B2437] px-4 py-3 rounded-xl w-[160px] flex items-center justify-between">
@@ -324,7 +421,7 @@ export default function ReportsPage() {
               <h3 className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-5">
                 Monthly Insights
               </h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="insights-grid">
                 <div className="bg-[#0E1423] border border-[#1B2437] rounded-xl p-4">
                   <p className="text-[9px] uppercase tracking-[0.14em] text-gray-500 mb-2">Highest Spend Day</p>
                   <h2 className="text-[20px] font-bold text-white leading-none mb-2">
@@ -387,7 +484,7 @@ export default function ReportsPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-5 px-6 py-3 text-[10px] uppercase tracking-[0.15em] text-gray-500 border-b border-[#151D31]">
+              <div className="reports-table-header">
                 <span>Category</span>
                 <span>Budget</span>
                 <span>Actual</span>
@@ -399,8 +496,7 @@ export default function ReportsPage() {
                 const remaining = Number(item.monthly_limit) - Number(item.actual);
                 const isOver    = remaining < 0;
                 return (
-                  <div key={index}
-                    className="grid grid-cols-5 px-6 py-4 border-b border-[#111827] items-center hover:bg-[#0F172A]">
+                  <div key={index} className="reports-table-row">
                     <span className="font-semibold text-sm text-white">{item.name}</span>
                     <span className="text-gray-300 text-sm">₹{Number(item.monthly_limit).toLocaleString()}</span>
                     <span className="text-gray-300 text-sm">₹{Number(item.actual).toLocaleString()}</span>
